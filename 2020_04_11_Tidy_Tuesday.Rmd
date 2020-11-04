@@ -1,0 +1,69 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+
+ikea <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-11-03/ikea.csv')
+ikea
+```
+```{r}
+# identify the products with values for all of height, width and depth
+# and calculate their volume
+ikea_3d <- ikea %>% 
+  mutate(is_3d = !is.na(depth) & !is.na(height) & !is.na(width)) %>% 
+  filter(is_3d == TRUE) %>% 
+  mutate(depth_m = depth / 100, 
+         height_m = height / 100,
+         width_m = width / 100,
+         volume_m3 = depth_m * height_m * width_m) 
+
+
+ikea_3d
+
+# identify products where the price has changed
+ikea_3d_price_change <- ikea_3d %>% 
+  mutate(price_change = !(old_price == "No old price")) %>% 
+  filter(price_change == TRUE)
+
+# convert the old price information from character to nummeric
+ikea_3d_price_change <- ikea_3d_price_change %>% 
+  mutate(old_price_num = str_replace(old_price, "SR ", ""),
+         old_price_num = str_replace(old_price_num, ",", ""),
+         old_price_num = as.numeric(old_price_num)
+         )
+
+# There was a warning from as.numeric about NA's being introduced when converting
+# from character to numeric ... So, check what proportion of the old_price_num column
+# are NAs.
+
+ikea_3d_price_change %>% 
+  summarise(mean(is.na(old_price_num)))
+    
+# The proportion is very small so continue to calculate the price changes and 
+# percentage price changes
+ikea_3d_price_change <- ikea_3d_price_change %>% 
+  mutate(price_change = price - old_price_num,
+         perc_price_change = price_change / price)
+
+
+# select the columns of interest for plotting
+ikea_focus <- ikea_3d_price_change %>% 
+  select(X1, item_id, name, volume_m3, price, price_change, perc_price_change)
+
+ikea_focus
+
+
+
+
+
+p <- ggplot(data = ikea_focus,
+            mapping = aes(x = volume_m3, y = perc_price_change)
+            )
+
+p + geom_point(alpha = 0.3)
+```
+
